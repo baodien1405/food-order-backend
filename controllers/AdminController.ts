@@ -36,7 +36,8 @@ export const CreateVandor = async (req: Request, res: Response, next: NextFuncti
     phone: phone,
     rating: 0,
     serviceAvailable: false,
-    coverImages: []
+    coverImages: [],
+    foods: []
   })
 
   return res.json(createVandor)
@@ -46,7 +47,7 @@ export const GetVandors = async (req: Request, res: Response, next: NextFunction
   const vandors = await Vandor.find({})
 
   if (vandors !== null) {
-    return res.json({ vandors })
+    return res.json(vandors)
   }
 
   return res.json({ message: 'vandors data not available' })
@@ -58,7 +59,7 @@ export const GetVandorByID = async (req: Request, res: Response, next: NextFunct
   const vandor = await FindVandor(vandorId)
 
   if (vandor !== null) {
-    return res.json({ vandor })
+    return res.json(vandor)
   }
 
   return res.json({ message: 'vandors data not available' })
