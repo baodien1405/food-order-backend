@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import { MONGO_URI } from '../config'
+mongoose.set('strictQuery', true)
 
 export default async () => {
   try {
