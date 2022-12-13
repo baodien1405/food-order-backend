@@ -8,12 +8,12 @@ dotenv.config()
 const StartServer = async () => {
   const app = express()
 
-  await dbConnection().then(() => {
-    app.listen(PORT, () => {
-      console.log(`Listening to the port ${PORT}`)
-    })
-  })
+  await dbConnection()
   await App(app)
+
+  app.listen(PORT, () => {
+    console.log(`Listening to the port ${PORT}`)
+  })
 }
 
 StartServer()
