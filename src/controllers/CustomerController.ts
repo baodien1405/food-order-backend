@@ -3,8 +3,9 @@ import { plainToInstance } from 'class-transformer'
 import express, { Request, Response, NextFunction } from 'express'
 import { validate } from 'class-validator'
 import { GenerateOtp, GenerateSalt, onRequestOTP } from '../utility'
-import { Customer } from '../models'
-import { CreateCustomerInputs, UserLoginInputs, EditCustomerProfileInputs } from '../dto'
+import { Customer, Food } from '../models'
+import { CreateCustomerInputs, UserLoginInputs, EditCustomerProfileInputs, OrderInputs } from '../dto'
+import { Order } from '../models/Order'
 
 export const CustomerSignUp = async (req: Request, res: Response, next: NextFunction) => {
   const customerInputs = plainToInstance(CreateCustomerInputs, req.body)
@@ -38,7 +39,8 @@ export const CustomerSignUp = async (req: Request, res: Response, next: NextFunc
     address: '',
     verified: false,
     lat: 0,
-    lng: 0
+    lng: 0,
+    orders: []
   })
 
   if (result) {
@@ -186,4 +188,87 @@ export const EditCustomerProfile = async (req: Request, res: Response, next: Nex
   }
 
   return res.status(400).json({ message: 'Error with edit profile' })
+}
+
+export const CreateOrder = async (req: Request, res: Response, next: NextFunction) => {
+  // grab current login customer
+  const customer = req.user
+
+  if (customer) {
+    // create an order ID
+    const orderId = `${Math.floor(Math.random() * 89999) + 1000}`
+    const profile = await Customer.findById(customer._id)
+
+    // grab order items from request [{ id: XX, unit: XX }]
+    const cart = <[OrderInputs]>req.body // [{ id: XX, unit: XX }]
+
+    let cartItems = Array()
+    let netAmount = 0.0
+
+    // calculate order amount
+    const foods = await Food.find()
+      .where('_id')
+      .in(cart.map((item) => item._id))
+      .exec()
+
+    foods.map((food) => {
+      cart.map(({ _id, unit }) => {
+        if (food._id == _id) {
+          netAmount += food.price * unit
+          cartItems.push({ food, unit })
+        }
+      })
+    })
+
+    // create order with item description
+    if (cartItems) {
+      // create Order
+      const currentOrder = await Order.create({
+        orderID: orderId,
+        items: cartItems,
+        totalAmount: netAmount,
+        orderDate: new Date(),
+        paidThrough: 'COD',
+        paymentResponse: '',
+        orderStatus: 'Waiting'
+      })
+
+      if (currentOrder) {
+        // finally update orders to user account
+        profile.orders.push(currentOrder)
+        await profile.save()
+
+        return res.status(200).json(currentOrder)
+      }
+    }
+  }
+  return res.status(400).json({ message: 'Error with create order!' })
+}
+
+export const GetOrders = async (req: Request, res: Response, next: NextFunction) => {
+  const customer = req.user
+
+  if (customer) {
+    const profile = await Customer.findById(customer._id).populate('orders')
+
+    if (profile) {
+      return res.status(200).json(profile.orders)
+    }
+  }
+
+  return res.status(400).json({ message: 'Error with fetch orders!' })
+}
+
+export const GetOrderById = async (req: Request, res: Response, next: NextFunction) => {
+  const orderId = req.params.id
+
+  if (orderId) {
+    const order = await Order.findById(orderId).populate('items.food')
+
+    if (order) {
+      return res.status(200).json(order)
+    }
+  }
+
+  return res.status(400).json({ message: 'Error with get order!' })
 }
