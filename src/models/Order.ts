@@ -2,17 +2,24 @@ import mongoose, { Schema, Document } from 'mongoose'
 
 export interface OrderDoc extends Document {
   orderID: string // 123456
-  items: [any] // [{ food, unit: 1 }]
-  totalAmount: number //456
+  vendorId: string
+  items: [any] // [{ Food, unit: 1 }]
+  totalAmount: number // 456.00
   orderDate: Date
-  paidThrough: string // COD, Credit Card, Wallet
-  paymentResponse: string // { status: true, response: some bank response }
-  orderStatus: string
+  paidThrough: string // COD // CARD // Net Banking // Wallet
+  paymentResponse: string // { Long response object for charge back scenario }
+  orderStatus: string // To determine the current status // waiting // preparing // onway // delivered // cancelled // failed
+  remarks: string
+  deliveryId: string
+  appliedOffers: boolean
+  offerId: string
+  readyTime: number // max 60 minutes
 }
 
 const OrderSchema = new Schema(
   {
     orderID: { type: String, required: true },
+    vendorId: { type: String, required: true },
     items: [
       {
         food: { type: Schema.Types.ObjectId, ref: 'food', required: true },
@@ -23,7 +30,12 @@ const OrderSchema = new Schema(
     orderDate: { type: Date },
     paidThrough: { type: String },
     paymentResponse: { type: String },
-    orderStatus: { type: String }
+    orderStatus: { type: String },
+    remarks: { type: String },
+    deliveryId: { type: String },
+    appliedOffers: { type: Boolean },
+    offerId: { type: String },
+    readyTime: { type: Number }
   },
   {
     toJSON: {

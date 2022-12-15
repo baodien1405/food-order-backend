@@ -1,8 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express'
 import {
   AddFood,
+  GetCurrentOrders,
   GetFoods,
+  GetOrderDetails,
   GetVendorProfile,
+  ProcessOrder,
   UpdateVendorCoverImage,
   UpdateVendorProfile,
   UpdateVendorService,
@@ -34,6 +37,11 @@ router.patch('/service', UpdateVendorService)
 
 router.post('/food', images, AddFood)
 router.get('/foods', GetFoods)
+
+// Orders
+router.get('/orders', GetCurrentOrders)
+router.put('/order/:id/process', ProcessOrder)
+router.get('/order/:id', GetOrderDetails)
 
 router.get('/', (req: Request, res: Response, next: NextFunction) => {
   res.json('Vendor route')

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { CreateFoodInputs, EditVendorInputs, VendorLoginInputs } from '../dto'
 import { Food } from '../models'
+import { Order } from '../models/Order'
 import { GenerateSignature, ValidatePassword } from '../utility'
 import { FindVendor } from './AdminController'
 
@@ -145,5 +146,52 @@ export const GetFoods = async (req: Request, res: Response, next: NextFunction) 
     }
   }
 
-  return res.json({ message: 'Foods information is not found' })
+  return res.json({ message: 'Foods information not found' })
+}
+
+export const GetCurrentOrders = async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user
+  if (user) {
+    const orders = await Order.find({ vendorId: user._id }).populate('items.food')
+
+    if (orders !== null) {
+      return res.status(200).json(orders)
+    }
+  }
+  return res.json({ message: 'Order not found' })
+}
+
+export const GetOrderDetails = async (req: Request, res: Response, next: NextFunction) => {
+  const orderId = req.params.id
+  if (orderId) {
+    const order = await Order.findById(orderId).populate('items.food')
+
+    if (order !== null) {
+      return res.status(200).json(order)
+    }
+  }
+  return res.json({ message: 'Order not found' })
+}
+
+export const ProcessOrder = async (req: Request, res: Response, next: NextFunction) => {
+  const orderId = req.params.id
+
+  const { status, remarks, time } = req.body // ACCEPT // REJECT // UNDER-PROCESS // READY
+
+  if (orderId) {
+    const order = await Order.findById(orderId).populate('items.food')
+
+    order.orderStatus = status
+    order.remarks = remarks
+    if (time) {
+      order.readyTime = time
+    }
+
+    const orderResult = await order.save()
+    if (orderResult !== null) {
+      return res.status(200).json(orderResult)
+    }
+  }
+
+  return res.json({ message: 'Unable to process order!' })
 }
