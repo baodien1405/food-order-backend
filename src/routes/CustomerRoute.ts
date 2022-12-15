@@ -8,7 +8,10 @@ import {
   EditCustomerProfile,
   CreateOrder,
   GetOrders,
-  GetOrderById
+  GetOrderById,
+  AddToCart,
+  GetCart,
+  DeleteCart
 } from '../controllers'
 import { Authenticate } from '../middlewares'
 
@@ -35,6 +38,10 @@ router.get('/profile', GetCustomerProfile)
 router.patch('/profile', EditCustomerProfile)
 
 // Cart
+router.post('/cart', AddToCart)
+router.get('/cart', GetCart)
+router.delete('/cart', DeleteCart)
+
 // Payment
 
 // Order

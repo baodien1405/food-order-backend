@@ -1,9 +1,9 @@
 import express, { Request, Response, NextFunction } from 'express'
-import { FoodDoc, Vandor } from '../models'
+import { FoodDoc, Vendor } from '../models'
 
 export const GetFoodAvailability = async (req: Request, res: Response, next: NextFunction) => {
   const pincode = req.params.pincode
-  const result = await Vandor.find({ pincode: pincode, serviceAvailable: false })
+  const result = await Vendor.find({ pincode: pincode, serviceAvailable: false })
     .sort({ rating: 'desc' })
     .populate('foods')
 
@@ -16,7 +16,7 @@ export const GetFoodAvailability = async (req: Request, res: Response, next: Nex
 
 export const GetTopRestaurants = async (req: Request, res: Response, next: NextFunction) => {
   const pincode = req.params.pincode
-  const result = await Vandor.find({ pincode: pincode, serviceAvailable: false }).sort({ rating: 'desc' }).limit(10)
+  const result = await Vendor.find({ pincode: pincode, serviceAvailable: false }).sort({ rating: 'desc' }).limit(10)
 
   if (result.length > 0) {
     return res.status(200).json(result)
@@ -27,13 +27,13 @@ export const GetTopRestaurants = async (req: Request, res: Response, next: NextF
 
 export const GetFoodIn30Min = async (req: Request, res: Response, next: NextFunction) => {
   const pincode = req.params.pincode
-  const result = await Vandor.find({ pincode: pincode, serviceAvailable: false }).populate('foods')
+  const result = await Vendor.find({ pincode: pincode, serviceAvailable: false }).populate('foods')
 
   if (result.length > 0) {
     let foodResult: any = []
 
-    result.map((vandor) => {
-      const foods = vandor.foods as [FoodDoc]
+    result.map((vendor) => {
+      const foods = vendor.foods as [FoodDoc]
       foodResult.push(...foods.filter((food) => food.readyTime < 30))
     })
 
@@ -45,7 +45,7 @@ export const GetFoodIn30Min = async (req: Request, res: Response, next: NextFunc
 
 export const SearchFoods = async (req: Request, res: Response, next: NextFunction) => {
   const pincode = req.params.pincode
-  const result = await Vandor.find({ pincode: pincode, serviceAvailable: false }).populate('foods')
+  const result = await Vendor.find({ pincode: pincode, serviceAvailable: false }).populate('foods')
 
   if (result.length > 0) {
     let foodResult: any = []
@@ -60,7 +60,7 @@ export const SearchFoods = async (req: Request, res: Response, next: NextFunctio
 
 export const GetRestaurantById = async (req: Request, res: Response, next: NextFunction) => {
   const id = req.params.id
-  const result = await Vandor.findById(id).populate('foods')
+  const result = await Vendor.findById(id).populate('foods')
 
   if (result) {
     return res.status(200).json(result)

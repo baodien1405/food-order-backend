@@ -190,6 +190,14 @@ export const EditCustomerProfile = async (req: Request, res: Response, next: Nex
   return res.status(400).json({ message: 'Error with edit profile' })
 }
 
+/** -------------------------- Cart Section -------------------------- **/
+export const AddToCart = async (req: Request, res: Response, next: NextFunction) => {}
+
+export const GetCart = async (req: Request, res: Response, next: NextFunction) => {}
+
+export const DeleteCart = async (req: Request, res: Response, next: NextFunction) => {}
+
+/** -------------------------- Order Section -------------------------- **/
 export const CreateOrder = async (req: Request, res: Response, next: NextFunction) => {
   // grab current login customer
   const customer = req.user
@@ -242,6 +250,7 @@ export const CreateOrder = async (req: Request, res: Response, next: NextFunctio
       }
     }
   }
+
   return res.status(400).json({ message: 'Error with create order!' })
 }
 

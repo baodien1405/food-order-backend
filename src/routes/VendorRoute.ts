@@ -2,11 +2,11 @@ import express, { Request, Response, NextFunction } from 'express'
 import {
   AddFood,
   GetFoods,
-  GetVandorProfile,
-  UpdateVandorCoverImage,
-  UpdateVandorProfile,
-  UpdateVandorService,
-  VandorLogin
+  GetVendorProfile,
+  UpdateVendorCoverImage,
+  UpdateVendorProfile,
+  UpdateVendorService,
+  VendorLogin
 } from '../controllers'
 import { Authenticate } from '../middlewares'
 import multer from 'multer'
@@ -24,19 +24,19 @@ const imageStorage = multer.diskStorage({
 
 const images = multer({ storage: imageStorage }).array('images', 10)
 
-router.post('/login', VandorLogin)
+router.post('/login', VendorLogin)
 
 router.use(Authenticate)
-router.get('/profile', GetVandorProfile)
-router.patch('/profile', UpdateVandorProfile)
-router.patch('/cover-image', images, UpdateVandorCoverImage)
-router.patch('/service', UpdateVandorService)
+router.get('/profile', GetVendorProfile)
+router.patch('/profile', UpdateVendorProfile)
+router.patch('/cover-image', images, UpdateVendorCoverImage)
+router.patch('/service', UpdateVendorService)
 
 router.post('/food', images, AddFood)
 router.get('/foods', GetFoods)
 
 router.get('/', (req: Request, res: Response, next: NextFunction) => {
-  res.json('Vandor route')
+  res.json('Vendor route')
 })
 
-export { router as VandorRoute }
+export { router as VendorRoute }
