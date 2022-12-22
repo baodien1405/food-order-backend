@@ -11,7 +11,9 @@ import {
   GetOrderById,
   AddToCart,
   GetCart,
-  DeleteCart
+  DeleteCart,
+  VerifyOffer,
+  CreatePayment
 } from '../controllers'
 import { Authenticate } from '../middlewares'
 
@@ -42,7 +44,11 @@ router.post('/cart', AddToCart)
 router.get('/cart', GetCart)
 router.delete('/cart', DeleteCart)
 
+// Apply Offers
+router.get('/offer/verify/:id', VerifyOffer)
+
 // Payment
+router.post('/create-payment', CreatePayment)
 
 // Order
 router.post('/create-order', CreateOrder)

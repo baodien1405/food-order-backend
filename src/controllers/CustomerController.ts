@@ -3,9 +3,8 @@ import { plainToInstance } from 'class-transformer'
 import { Request, Response, NextFunction } from 'express'
 import { validate } from 'class-validator'
 import { GenerateOtp, GenerateSalt, onRequestOTP } from '../utility'
-import { Customer, Food } from '../models'
-import { CreateCustomerInputs, UserLoginInputs, EditCustomerProfileInputs, OrderInputs } from '../dto'
-import { Order } from '../models/Order'
+import { Customer, DeliveryUser, Food, Offer, Order, Transaction, Vendor } from '../models'
+import { CreateCustomerInputs, UserLoginInputs, EditCustomerProfileInputs, OrderInputs, CartItem } from '../dto'
 
 export const CustomerSignUp = async (req: Request, res: Response, next: NextFunction) => {
   const customerInputs = plainToInstance(CreateCustomerInputs, req.body)
@@ -199,7 +198,7 @@ export const AddToCart = async (req: Request, res: Response, next: NextFunction)
     const profile = await Customer.findById(customer._id).populate('cart.food')
     let cartItems = Array()
 
-    const { _id, unit } = <OrderInputs>req.body
+    const { _id, unit } = <CartItem>req.body
     const food = await Food.findById(_id)
 
     if (food) {
@@ -262,18 +261,100 @@ export const DeleteCart = async (req: Request, res: Response, next: NextFunction
   return res.status(400).json({ message: 'Cart is already empty!' })
 }
 
+/** -------------------------- Create Payment -------------------------- **/
+export const CreatePayment = async (req: Request, res: Response, next: NextFunction) => {
+  const customer = req.user
+  const { amount, paymentMode, offerId } = req.body
+  let payableAmount = Number(amount)
+
+  if (offerId) {
+    const appliedOffer = await Offer.findById(offerId)
+
+    if (appliedOffer) {
+      if (appliedOffer.isActive) {
+        payableAmount = payableAmount - appliedOffer.offerAmount
+      }
+    }
+  }
+
+  // Perform Payment gateway charge API call
+
+  // Right after payment gateway success / failure response
+
+  // Create record on Transaction
+  const transaction = await Transaction.create({
+    customer: customer._id,
+    vendorId: '',
+    orderId: '',
+    orderValue: payableAmount,
+    offerUsed: offerId || 'NA',
+    status: 'OPEN', // Failed // Success
+    paymentMode: paymentMode,
+    paymentResponse: 'Payment is Cash or Delivery'
+  })
+
+  // return transaction ID
+  return res.status(200).json(transaction)
+}
+
+/** -------------------------- Delivery Notification -------------------------- **/
+const assignOrderForDelivery = async (orderId: string, vendorId: string) => {
+  // find the vendor
+  const vendor = await Vendor.findById(vendorId)
+
+  if (vendor) {
+    const areaCode = vendor.pincode
+    const vendorLat = vendor.lat
+    const vendorLng = vendor.lng
+
+    // find the available Delivery person
+    const deliveryPerson = await DeliveryUser.find({ pincode: areaCode, verified: true, isAvailable: true })
+
+    if (deliveryPerson) {
+      // check the nearest delivery person and assign the order
+      const currentOrder = await Order.findById(orderId)
+
+      if (currentOrder) {
+        // update deliveryID
+        currentOrder.deliveryId = deliveryPerson[0]._id
+        const response = await currentOrder.save()
+
+        // Notify to vendor for received New Order using Firebase Push Notification
+      }
+    }
+  }
+  // update deliveryID
+}
+
 /** -------------------------- Order Section -------------------------- **/
+
+const validateTransaction = async (txnId: string) => {
+  const currentTransaction = await Transaction.findById(txnId)
+
+  if (currentTransaction) {
+    if (currentTransaction.status.toLowerCase() !== 'failed') {
+      return { status: true, currentTransaction }
+    }
+  }
+
+  return { status: false, currentTransaction }
+}
+
 export const CreateOrder = async (req: Request, res: Response, next: NextFunction) => {
   // grab current login customer
   const customer = req.user
+  const { txnId, amount, items } = <OrderInputs>req.body
 
   if (customer) {
-    // create an order ID
+    // validate transaction
+    const { status, currentTransaction } = await validateTransaction(txnId)
+
+    if (!status) {
+      return res.status(404).json({ message: 'Error with create order!' })
+    }
+
     const orderId = `${Math.floor(Math.random() * 89999) + 1000}`
     const profile = await Customer.findById(customer._id)
-
-    // grab order items from request [{ id: XX, unit: XX }]
-    const cart = <[OrderInputs]>req.body // [{ id: XX, unit: XX }]
 
     let cartItems = Array()
     let netAmount = 0.0
@@ -282,11 +363,11 @@ export const CreateOrder = async (req: Request, res: Response, next: NextFunctio
     // calculate order amount
     const foods = await Food.find()
       .where('_id')
-      .in(cart.map((item) => item._id))
+      .in(items.map((item) => item._id))
       .exec()
 
     foods.map((food) => {
-      cart.map(({ _id, unit }) => {
+      items.map(({ _id, unit }) => {
         if (food._id == _id) {
           vendorId = food.vendorId
           netAmount += food.price * unit
@@ -303,14 +384,11 @@ export const CreateOrder = async (req: Request, res: Response, next: NextFunctio
         vendorId: vendorId,
         items: cartItems,
         totalAmount: netAmount,
+        paidAmount: amount,
         orderDate: new Date(),
-        paidThrough: 'COD',
-        paymentResponse: '',
         orderStatus: 'waiting',
         remarks: '',
         deliveryId: '',
-        appliedOffer: false,
-        offerId: null,
         readyTime: 45
       })
 
@@ -318,6 +396,15 @@ export const CreateOrder = async (req: Request, res: Response, next: NextFunctio
         // finally update orders to user account
         profile.cart = [] as any
         profile.orders.push(currentOrder)
+
+        currentTransaction.vendorId = vendorId
+        currentTransaction.orderId = orderId
+        currentTransaction.status = 'CONFIRMED'
+
+        await currentTransaction.save()
+
+        await assignOrderForDelivery(currentOrder._id, vendorId)
+
         await profile.save()
 
         return res.status(200).json(currentOrder)
@@ -354,4 +441,25 @@ export const GetOrderById = async (req: Request, res: Response, next: NextFuncti
   }
 
   return res.status(400).json({ message: 'Error with get order!' })
+}
+
+export const VerifyOffer = async (req: Request, res: Response, next: NextFunction) => {
+  const offerId = req.params.id
+  const customer = req.user
+
+  if (customer) {
+    const appliedOffer = await Offer.findById(offerId)
+
+    if (appliedOffer) {
+      if (appliedOffer.promoType === 'USER') {
+        // only can apply once for user
+      } else {
+        if (appliedOffer.isActive) {
+          return res.status(200).json({ message: 'Offer is valid', offer: appliedOffer })
+        }
+      }
+    }
+  }
+
+  return res.status(400).json({ message: 'Offer is not valid!' })
 }

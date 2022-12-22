@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
-import { CreateFoodInputs, EditVendorInputs, VendorLoginInputs } from '../dto'
-import { Food } from '../models'
-import { Order } from '../models/Order'
+import { CreateFoodInputs, CreateOfferInputs, EditVendorInputs, VendorLoginInputs } from '../dto'
+import { Food, Offer, Order } from '../models'
 import { GenerateSignature, ValidatePassword } from '../utility'
 import { FindVendor } from './AdminController'
 
@@ -85,12 +84,18 @@ export const UpdateVendorCoverImage = async (req: Request, res: Response, next: 
 
 export const UpdateVendorService = async (req: Request, res: Response, next: NextFunction) => {
   const user = req.user
+  const { lat, lng } = req.body
 
   if (user) {
     const existingVendor = await FindVendor(user._id)
 
     if (existingVendor !== null) {
       existingVendor.serviceAvailable = !existingVendor.serviceAvailable
+
+      if (lat && lng) {
+        existingVendor.lat = lat
+        existingVendor.lng = lng
+      }
 
       const saveResult = await existingVendor.save()
       return res.json(saveResult)
@@ -194,4 +199,130 @@ export const ProcessOrder = async (req: Request, res: Response, next: NextFuncti
   }
 
   return res.json({ message: 'Unable to process order!' })
+}
+
+export const GetOffers = async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user
+
+  if (user) {
+    let currentOffers = Array()
+
+    const offers = await Offer.find().populate('vendors')
+    if (offers) {
+      offers.map((item) => {
+        if (item.vendors) {
+          item.vendors.map((vendor) => {
+            if (vendor._id.toString() === user._id) {
+              currentOffers.push(item)
+            }
+          })
+        }
+
+        if (item.offerType === 'GENERIC') {
+          currentOffers.push(item)
+        }
+      })
+    }
+    return res.json(currentOffers)
+  }
+
+  return res.json({ message: 'Offers not available' })
+}
+
+export const AddOffer = async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user
+
+  if (user) {
+    const {
+      title,
+      description,
+      offerType,
+      offerAmount,
+      pincode,
+      promoCode,
+      promoType,
+      startValidity,
+      endValidity,
+      bank,
+      bins,
+      minValue,
+      isActive
+    } = <CreateOfferInputs>req.body
+
+    const vendor = await FindVendor(user._id)
+
+    if (vendor) {
+      const offer = await Offer.create({
+        title,
+        description,
+        offerType,
+        offerAmount,
+        pincode,
+        promoCode,
+        promoType,
+        startValidity,
+        endValidity,
+        bank,
+        bins,
+        minValue,
+        isActive,
+        vendors: [vendor]
+      })
+
+      return res.status(200).json(offer)
+    }
+  }
+
+  return res.json({ message: 'Unable to add offer!' })
+}
+
+export const EditOffer = async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user
+  const orderId = req.params.id
+
+  if (user) {
+    const {
+      title,
+      description,
+      offerType,
+      offerAmount,
+      pincode,
+      promoCode,
+      promoType,
+      startValidity,
+      endValidity,
+      bank,
+      bins,
+      minValue,
+      isActive
+    } = <CreateOfferInputs>req.body
+
+    const currentOffer = await Offer.findById(orderId)
+
+    if (currentOffer) {
+      const vendor = await FindVendor(user._id)
+
+      if (vendor) {
+        currentOffer.title = title
+        currentOffer.description = description
+        currentOffer.offerType = offerType
+        currentOffer.offerAmount = offerAmount
+        currentOffer.pincode = pincode
+        currentOffer.promoCode = promoCode
+        currentOffer.promoType = promoType
+        currentOffer.startValidity = startValidity
+        currentOffer.endValidity = endValidity
+        currentOffer.bank = bank
+        currentOffer.bins = bins
+        currentOffer.minValue = minValue
+        currentOffer.isActive = isActive
+
+        const result = await currentOffer.save()
+
+        return res.json(result)
+      }
+    }
+  }
+
+  return res.json({ message: 'Unable to edit offer!' })
 }
